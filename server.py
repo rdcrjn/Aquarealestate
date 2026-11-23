@@ -157,10 +157,12 @@ PAGE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 header{background:#33cccc;padding:4px 20px;display:flex;align-items:center;justify-content:center}  /* HEADER BAR: change 4px to make the bar taller/shorter */
 header img{height:80px;width:auto;max-width:90vw}  /* LOGO SIZE: change 80px to make the logo bigger/smaller */
 #lock{position:fixed;inset:0;background:#f4f7fa;display:flex;align-items:center;justify-content:center;z-index:10}
-#lock .box{background:#fff;border-top:6px solid #33cccc;border-radius:14px;padding:28px;width:min(360px,90vw);box-shadow:0 8px 30px rgba(0,0,0,.08);text-align:center}
-#lock img{height:80px;max-width:100%;margin-bottom:12px}
-#lock h2{margin:0 0 16px;font-size:18px}
-#lock input{width:100%;margin-bottom:10px}#lock button{width:100%}
+#lock form.box{display:flex;flex-direction:column;align-items:stretch;gap:12px;margin:0;max-width:none;background:#fff;border-top:6px solid #33cccc;border-radius:14px;padding:28px;width:min(360px,90vw);box-shadow:0 8px 30px rgba(0,0,0,.08);text-align:center}
+#lock img{height:140px;width:140px;object-fit:contain;align-self:center;border-radius:10px}
+#lock h2{margin:4px 0 0;font-size:18px}
+#lock input{flex:none;width:100%;padding:12px;font-size:16px;color:#1d2733;background:#fff}
+#lock input:focus{outline:2px solid #33cccc;border-color:#33cccc}
+#lock button{width:100%}
 #lock .err{color:#c0392b;font-size:14px;min-height:18px;margin-top:6px}
 #log{flex:1;overflow:auto;padding:20px;max-width:860px;width:100%;margin:0 auto}
 .m{padding:10px 14px;border-radius:12px;margin:8px 0;max-width:85%;white-space:pre-wrap;line-height:1.45}
@@ -169,7 +171,7 @@ header img{height:80px;width:auto;max-width:90vw}  /* LOGO SIZE: change 80px to 
 form{display:flex;gap:8px;padding:14px;max-width:860px;width:100%;margin:0 auto}
 input{flex:1;padding:12px;border:1px solid #c9d2dc;border-radius:10px;font-size:15px}
 button{padding:12px 18px;border:0;border-radius:10px;background:#33cccc;color:#fff;font-size:15px;cursor:pointer}
-button:disabled{opacity:.5}</style></head><body>
+button:disabled{opacity:.5}input:focus{outline:2px solid #33cccc;border-color:#33cccc}</style></head><body>
 <div id="lock"><form class="box" id="lf"><img src="https://drive.google.com/thumbnail?id=1gqJ_zWmNPYLou-JY3sIFI1K_MgHnVsWP&sz=w1000" alt="Logo"><h2>Enter password</h2><input id="pwi" type="password" placeholder="Password" autofocus><button>Unlock</button><div class="err" id="le"></div></form></div>
 <header><img src="https://drive.google.com/thumbnail?id=1gqJ_zWmNPYLou-JY3sIFI1K_MgHnVsWP&sz=w1000" alt="Logo"></header><div id="log"><div class="m a">Hi! Ask me anything about your Jotform listing submissions.</div></div>
 <form id="f"><input id="q" placeholder="e.g. List all clients with email and phone" autocomplete="off"><button id="b">Send</button></form>
