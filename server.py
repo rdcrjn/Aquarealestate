@@ -24,6 +24,25 @@ BASE = os.environ.get("JOTFORM_BASE", "https://api.jotform.com").rstrip("/")
 
 TOOLS = [
     {
+        "name": "list_forms",
+        "description": "List the Jotform forms in the account: id, title, status, submission count, created_at and url.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "description": "Max 1000, default 100"},
+                "offset": {"type": "integer", "description": "For paging, default 0"},
+            },
+        },
+    },
+    {
+        "name": "get_form_questions",
+        "description": "List the questions (fields) on a form: question id, label, type and whether it is required.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"form_id": {"type": "string", "description": f"Form ID (default {FORM_ID})"}},
+        },
+    },
+    {
         "name": "list_submissions",
         "description": "Get submissions for a Jotform form, newest first. Each item has id, created_at and answers (question -> answer).",
         "inputSchema": {
@@ -66,6 +85,22 @@ def simplify(sub):
 
 
 def call_tool(name, args):
+    if name == "list_forms":
+        limit = max(1, min(int(args.get("limit") or 100), 1000))
+        data = jotform("/user/forms", {"limit": limit, "offset": int(args.get("offset") or 0),
+                                       "orderby": "created_at"})
+        forms = [{"id": f.get("id"), "title": f.get("title"), "status": f.get("status"),
+                  "submissions": f.get("count"), "created_at": f.get("created_at"),
+                  "url": f.get("url")} for f in data]
+        return {"count": len(forms), "forms": forms}
+    if name == "get_form_questions":
+        data = jotform(f"/form/{args.get('form_id') or FORM_ID}/questions")
+        qs = [{"qid": q.get("qid"), "label": q.get("text"), "type": q.get("type"),
+               "required": q.get("required") == "Yes"}
+              for q in sorted(data.values(), key=lambda q: int(q.get("order") or 0))
+              if q.get("text") and q.get("type") not in ("control_head", "control_button",
+                                                         "control_pagebreak", "control_text")]
+        return {"count": len(qs), "questions": qs}
     if name == "list_submissions":
         limit = max(1, min(int(args.get("limit") or 100), 1000))
         data = jotform(f"/form/{args.get('form_id') or FORM_ID}/submissions",
@@ -108,7 +143,8 @@ APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 PUBLIC_URL = (os.environ.get("PUBLIC_URL") or os.environ.get("RENDER_EXTERNAL_URL") or "").rstrip("/")
 
 INSTRUCTIONS = """You are Aqua Assist. You answer questions about property-listing submissions from Jotform.
-- For every question, call list_submissions (limit 1000) to get current data. If 1000 come back, call again with offset 1000, 2000 and so on.
+- Tools: list_forms (all forms), get_form_questions (a form's fields), list_submissions (a form's submissions; default form 212514536993158), get_submission (one by ID).
+- For questions about submissions, call list_submissions (limit 1000) to get current data. If 1000 come back, call again with offset 1000, 2000 and so on.
 - Each submission has id, created_at and answers (question -> answer).
 - Find a client by name, email, phone, Deal ID or submission ID. Use get_submission when given an ID.
 - The same question can be worded differently across submissions; check all matching questions.
