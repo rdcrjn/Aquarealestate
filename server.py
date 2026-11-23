@@ -154,8 +154,14 @@ INSTRUCTIONS = """You are Aqua Assist. You answer questions about property-listi
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Aqua Assist</title><style>
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f4f7fa;color:#1d2733;display:flex;flex-direction:column;height:100vh}
-header{background:#33cccc;padding:7px 20px;display:flex;align-items:center;justify-content:center}  /* HEADER BAR: change padding to make the bar taller/shorter */
-header img{height:100px;width:auto}  /* LOGO SIZE: change 70px to make the logo bigger/smaller */
+header{background:#33cccc;padding:4px 20px;display:flex;align-items:center;justify-content:center}  /* HEADER BAR: change 4px to make the bar taller/shorter */
+header img{height:80px;width:auto;max-width:90vw}  /* LOGO SIZE: change 80px to make the logo bigger/smaller */
+#lock{position:fixed;inset:0;background:#f4f7fa;display:flex;align-items:center;justify-content:center;z-index:10}
+#lock .box{background:#fff;border-top:6px solid #33cccc;border-radius:14px;padding:28px;width:min(360px,90vw);box-shadow:0 8px 30px rgba(0,0,0,.08);text-align:center}
+#lock img{height:80px;max-width:100%;margin-bottom:12px}
+#lock h2{margin:0 0 16px;font-size:18px}
+#lock input{width:100%;margin-bottom:10px}#lock button{width:100%}
+#lock .err{color:#c0392b;font-size:14px;min-height:18px;margin-top:6px}
 #log{flex:1;overflow:auto;padding:20px;max-width:860px;width:100%;margin:0 auto}
 .m{padding:10px 14px;border-radius:12px;margin:8px 0;max-width:85%;white-space:pre-wrap;line-height:1.45}
 .u{background:#33cccc;color:#fff;margin-left:auto}.a{background:#fff;border:1px solid #dde3ea}
@@ -164,10 +170,15 @@ form{display:flex;gap:8px;padding:14px;max-width:860px;width:100%;margin:0 auto}
 input{flex:1;padding:12px;border:1px solid #c9d2dc;border-radius:10px;font-size:15px}
 button{padding:12px 18px;border:0;border-radius:10px;background:#33cccc;color:#fff;font-size:15px;cursor:pointer}
 button:disabled{opacity:.5}</style></head><body>
+<div id="lock"><form class="box" id="lf"><img src="https://drive.google.com/thumbnail?id=1gqJ_zWmNPYLou-JY3sIFI1K_MgHnVsWP&sz=w1000" alt="Logo"><h2>Enter password</h2><input id="pwi" type="password" placeholder="Password" autofocus><button>Unlock</button><div class="err" id="le"></div></form></div>
 <header><img src="https://drive.google.com/thumbnail?id=1gqJ_zWmNPYLou-JY3sIFI1K_MgHnVsWP&sz=w1000" alt="Logo"></header><div id="log"><div class="m a">Hi! Ask me anything about your Jotform listing submissions.</div></div>
 <form id="f"><input id="q" placeholder="e.g. List all clients with email and phone" autocomplete="off"><button id="b">Send</button></form>
 <script>
-let prev=null,pw=sessionStorage.getItem('pw')||'';const log=document.getElementById('log');
+let prev=null,pw='';const log=document.getElementById('log');
+async function tryPw(p){const r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p})});return r.ok}
+function unlock(p){pw=p;try{sessionStorage.setItem('pw',p)}catch(e){}document.getElementById('lock').style.display='none';document.getElementById('q').focus()}
+document.getElementById('lf').onsubmit=async e=>{e.preventDefault();const p=document.getElementById('pwi').value;const le=document.getElementById('le');le.textContent='';if(await tryPw(p))unlock(p);else le.textContent='Wrong password'};
+(async()=>{let s='';try{s=sessionStorage.getItem('pw')||''}catch(e){}if(await tryPw(s))unlock(s)})();
 function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function md(t){t=esc(t);const L=t.split('\\n'),o=[];let tb=[];const flush=()=>{if(!tb.length)return;
  const r=tb.filter(x=>!/^[\\s|:-]+$/.test(x));
@@ -177,9 +188,9 @@ function md(t){t=esc(t);const L=t.split('\\n'),o=[];let tb=[];const flush=()=>{i
 function add(t,c){const d=document.createElement('div');d.className='m '+c;d.innerHTML=c=='a'?md(t):esc(t);log.appendChild(d);log.scrollTop=1e9;return d}
 document.getElementById('f').onsubmit=async e=>{e.preventDefault();const q=document.getElementById('q'),b=document.getElementById('b');
  const msg=q.value.trim();if(!msg)return;q.value='';add(msg,'u');const w=add('Thinking…','a');b.disabled=true;
- for(let i=0;i<2;i++){const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+ for(let i=0;i<1;i++){const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},
   body:JSON.stringify({message:msg,previous_response_id:prev,password:pw})});const j=await r.json();
-  if(r.status==401){pw=prompt('Password')||'';sessionStorage.setItem('pw',pw);continue}
+  if(r.status==401){document.getElementById('lock').style.display='flex';w.remove();break}
   w.innerHTML=md(j.reply||('Error: '+(j.error||r.status)));if(j.response_id)prev=j.response_id;break}
  b.disabled=false;q.focus()};
 </script></body></html>"""
@@ -235,6 +246,9 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
+        if self.path == "/login":
+            ok = not APP_PASSWORD or body.get("password") == APP_PASSWORD
+            return self._send(200 if ok else 401, {"ok": ok})
         if self.path == "/chat":
             if APP_PASSWORD and body.get("password") != APP_PASSWORD:
                 return self._send(401, {"error": "Wrong password"})
