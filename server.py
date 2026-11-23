@@ -7,8 +7,14 @@ Env vars:
   FORM_ID          default form (optional, default 212514536993158)
   JOTFORM_BASE     optional, e.g. https://eu-api.jotform.com
   PORT             set automatically by Render/Railway (default 8000)
+
+Chat UI (served at /):
+  OPENAI_API_KEY   your OpenAI API key (required for the chat page)
+  APP_PASSWORD     password people type to use the chat page (strongly recommended)
+  OPENAI_MODEL     optional, default gpt-6-astra
+  PUBLIC_URL       optional; Render sets RENDER_EXTERNAL_URL automatically
 """
-import json, os, urllib.parse, urllib.request
+import json, os, urllib.error, urllib.parse, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 API_KEY = os.environ.get("JOTFORM_API_KEY", "")
@@ -95,28 +101,113 @@ def handle(msg):
     return {"jsonrpc": "2.0", "id": mid, "result": result}
 
 
+# ---------------- Chat UI (talks to OpenAI, which uses the /mcp tools) ----------------
+OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-6-astra")
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
+PUBLIC_URL = (os.environ.get("PUBLIC_URL") or os.environ.get("RENDER_EXTERNAL_URL") or "").rstrip("/")
+
+INSTRUCTIONS = """You are Aqua Assist. You answer questions about property-listing submissions from Jotform.
+- For every question, call list_submissions (limit 1000) to get current data. If 1000 come back, call again with offset 1000, 2000 and so on.
+- Each submission has id, created_at and answers (question -> answer).
+- Find a client by name, email, phone, Deal ID or submission ID. Use get_submission when given an ID.
+- The same question can be worded differently across submissions; check all matching questions.
+- If an answer is missing, say "Not answered". Never guess.
+- Keep answers short. Use a markdown table when comparing several clients."""
+
+PAGE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aqua Assist</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f4f7fa;color:#1d2733;display:flex;flex-direction:column;height:100vh}
+header{background:#0b6e99;color:#fff;padding:14px 20px;font-weight:600;font-size:18px}
+#log{flex:1;overflow:auto;padding:20px;max-width:860px;width:100%;margin:0 auto}
+.m{padding:10px 14px;border-radius:12px;margin:8px 0;max-width:85%;white-space:pre-wrap;line-height:1.45}
+.u{background:#0b6e99;color:#fff;margin-left:auto}.a{background:#fff;border:1px solid #dde3ea}
+.a table{border-collapse:collapse;margin:6px 0;white-space:normal}.a td,.a th{border:1px solid #dde3ea;padding:4px 8px;text-align:left}
+form{display:flex;gap:8px;padding:14px;max-width:860px;width:100%;margin:0 auto}
+input{flex:1;padding:12px;border:1px solid #c9d2dc;border-radius:10px;font-size:15px}
+button{padding:12px 18px;border:0;border-radius:10px;background:#0b6e99;color:#fff;font-size:15px;cursor:pointer}
+button:disabled{opacity:.5}</style></head><body>
+<header>Aqua Assist</header><div id="log"><div class="m a">Hi! Ask me anything about your Jotform listing submissions.</div></div>
+<form id="f"><input id="q" placeholder="e.g. List all clients with email and phone" autocomplete="off"><button id="b">Send</button></form>
+<script>
+let prev=null,pw=sessionStorage.getItem('pw')||'';const log=document.getElementById('log');
+function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function md(t){t=esc(t);const L=t.split('\\n'),o=[];let tb=[];const flush=()=>{if(!tb.length)return;
+ const r=tb.filter(x=>!/^[\\s|:-]+$/.test(x));
+ o.push('<table>'+r.map((x,i)=>'<tr>'+x.replace(/^\\||\\|$/g,'').split('|').map(c=>i?'<td>'+c.trim()+'</td>':'<th>'+c.trim()+'</th>').join('')+'</tr>').join('')+'</table>');tb=[]};
+ for(const l of L){if(l.trim().startsWith('|'))tb.push(l.trim());else{flush();o.push(l)}}flush();
+ return o.join('\\n').replace(/\\*\\*(.+?)\\*\\*/g,'<b>$1</b>')}
+function add(t,c){const d=document.createElement('div');d.className='m '+c;d.innerHTML=c=='a'?md(t):esc(t);log.appendChild(d);log.scrollTop=1e9;return d}
+document.getElementById('f').onsubmit=async e=>{e.preventDefault();const q=document.getElementById('q'),b=document.getElementById('b');
+ const msg=q.value.trim();if(!msg)return;q.value='';add(msg,'u');const w=add('Thinking…','a');b.disabled=true;
+ for(let i=0;i<2;i++){const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({message:msg,previous_response_id:prev,password:pw})});const j=await r.json();
+  if(r.status==401){pw=prompt('Password')||'';sessionStorage.setItem('pw',pw);continue}
+  w.innerHTML=md(j.reply||('Error: '+(j.error||r.status)));if(j.response_id)prev=j.response_id;break}
+ b.disabled=false;q.focus()};
+</script></body></html>"""
+
+
+def ask_openai(message, previous_id=None):
+    body = {
+        "model": MODEL,
+        "instructions": INSTRUCTIONS,
+        "input": message,
+        "tools": [{
+            "type": "mcp", "server_label": "jotform",
+            "server_url": f"{PUBLIC_URL}/mcp",
+            "headers": {"Authorization": f"Bearer {TOKEN}"},
+            "require_approval": "never",
+        }],
+    }
+    if previous_id:
+        body["previous_response_id"] = previous_id
+    req = urllib.request.Request("https://api.openai.com/v1/responses", data=json.dumps(body).encode(),
+                                 headers={"Authorization": f"Bearer {OPENAI_KEY}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=180) as r:
+            data = json.load(r)
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(e.read().decode()[:500])
+    text = "".join(c.get("text", "") for item in data.get("output", []) if item.get("type") == "message"
+                   for c in item.get("content", []) if c.get("type") == "output_text")
+    return text or "(no reply)", data.get("id")
+
+
 class H(BaseHTTPRequestHandler):
-    def _send(self, code, body=None):
+    def _send(self, code, body=None, html=None):
         self.send_response(code)
-        if body is not None:
+        if html is not None:
+            data = html.encode()
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+        elif body is not None:
             data = json.dumps(body).encode()
             self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
         else:
-            self.send_header("Content-Length", "0")
-            self.end_headers()
+            data = b""
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_GET(self):
         if self.path == "/":
+            return self._send(200, html=PAGE)
+        if self.path == "/health":
             return self._send(200, {"status": "ok", "mcp": "/mcp"})
         self._send(405)
 
     def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
+        if self.path == "/chat":
+            if APP_PASSWORD and body.get("password") != APP_PASSWORD:
+                return self._send(401, {"error": "Wrong password"})
+            try:
+                reply, rid = ask_openai(str(body.get("message", ""))[:4000], body.get("previous_response_id"))
+                return self._send(200, {"reply": reply, "response_id": rid})
+            except Exception as e:
+                return self._send(500, {"error": str(e)})
         if TOKEN and self.headers.get("Authorization", "") != f"Bearer {TOKEN}":
             return self._send(401, {"error": "unauthorized"})
-        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
         if isinstance(body, list):
             out = [r for r in (handle(m) for m in body) if r]
         else:
