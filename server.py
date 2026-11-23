@@ -163,7 +163,7 @@ form{display:flex;gap:8px;padding:14px;max-width:860px;width:100%;margin:0 auto}
 input{flex:1;padding:12px;border:1px solid #c9d2dc;border-radius:10px;font-size:15px}
 button{padding:12px 18px;border:0;border-radius:10px;background:#0b6e99;color:#fff;font-size:15px;cursor:pointer}
 button:disabled{opacity:.5}</style></head><body>
-<header>Aqua Assist</header><div id="log"><div class="m a">Hi! Ask me anything about your Jotform listing submissions.</div></div>
+<header style="display:flex;align-items:center;gap:10px"><img src="https://drive.google.com/file/d/1gqJ_zWmNPYLou-JY3sIFI1K_MgHnVsWP/view?usp=sharing" style="height:32px">Aqua Assist</header><div id="log"><div class="m a">Hi! Ask me anything about your Jotform listing submissions.</div></div>
 <form id="f"><input id="q" placeholder="e.g. List all clients with email and phone" autocomplete="off"><button id="b">Send</button></form>
 <script>
 let prev=null,pw=sessionStorage.getItem('pw')||'';const log=document.getElementById('log');
