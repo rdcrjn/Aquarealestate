@@ -154,7 +154,8 @@ INSTRUCTIONS = """You are Aqua Assist. You answer questions about property-listi
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Aqua Assist</title><style>
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f4f7fa;color:#1d2733;display:flex;flex-direction:column;height:100vh}
-header{background:#33cccc;color:#fff;padding:14px 20px;font-weight:600;font-size:18px}
+header{background:#33cccc;padding:12px 20px;display:flex;align-items:center;justify-content:center}  /* HEADER BAR: change padding to make the bar taller/shorter */
+header img{height:70px;width:auto}  /* LOGO SIZE: change 70px to make the logo bigger/smaller */
 #log{flex:1;overflow:auto;padding:20px;max-width:860px;width:100%;margin:0 auto}
 .m{padding:10px 14px;border-radius:12px;margin:8px 0;max-width:85%;white-space:pre-wrap;line-height:1.45}
 .u{background:#33cccc;color:#fff;margin-left:auto}.a{background:#fff;border:1px solid #dde3ea}
@@ -163,7 +164,7 @@ form{display:flex;gap:8px;padding:14px;max-width:860px;width:100%;margin:0 auto}
 input{flex:1;padding:12px;border:1px solid #c9d2dc;border-radius:10px;font-size:15px}
 button{padding:12px 18px;border:0;border-radius:10px;background:#33cccc;color:#fff;font-size:15px;cursor:pointer}
 button:disabled{opacity:.5}</style></head><body>
-<header style="display:flex;align-items:center;gap:10px"><img src="https://drive.google.com/thumbnail?id=1gqJ_zWmNPYLou-JY3sIFI1K_MgHnVsWP&sz=w500" style="height:32px">Aqua Assist</header><div id="log"><div class="m a">Hi! Ask me anything about your Jotform listing submissions.</div></div>
+<header><img src="https://drive.google.com/thumbnail?id=1gqJ_zWmNPYLou-JY3sIFI1K_MgHnVsWP&sz=w1000" alt="Logo"></header><div id="log"><div class="m a">Hi! Ask me anything about your Jotform listing submissions.</div></div>
 <form id="f"><input id="q" placeholder="e.g. List all clients with email and phone" autocomplete="off"><button id="b">Send</button></form>
 <script>
 let prev=null,pw=sessionStorage.getItem('pw')||'';const log=document.getElementById('log');
