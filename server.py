@@ -155,7 +155,7 @@ PAGE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 <title>Aqua Assist</title><style>
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f4f7fa;color:#1d2733;display:flex;flex-direction:column;height:100vh}
 header{background:#33cccc;padding:12px 20px;display:flex;align-items:center;justify-content:center}  /* HEADER BAR: change padding to make the bar taller/shorter */
-header img{height:70px;width:auto}  /* LOGO SIZE: change 70px to make the logo bigger/smaller */
+header img{height:100px;width:auto}  /* LOGO SIZE: change 70px to make the logo bigger/smaller */
 #log{flex:1;overflow:auto;padding:20px;max-width:860px;width:100%;margin:0 auto}
 .m{padding:10px 14px;border-radius:12px;margin:8px 0;max-width:85%;white-space:pre-wrap;line-height:1.45}
 .u{background:#33cccc;color:#fff;margin-left:auto}.a{background:#fff;border:1px solid #dde3ea}
